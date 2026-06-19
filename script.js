@@ -1,37 +1,79 @@
 const stemMap = {
+  PianoFX: "music/PianoFX.mp3",
+  Guitar: "music/Guitar.mp3",
   Bass: "music/Bass.mp3",
   Drum1: "music/Drum1.mp3",
   Drum2: "music/Drum2.mp3",
-  Guitar: "music/Guitar.mp3",
-  Lead: "music/Lead.mp3",
   Pad: "music/Pad.mp3",
-  PianoFX: "music/PianoFX.mp3",
+  Lead: "music/Lead.mp3",
 };
 
-const stems = {};
-
-Object.entries(stemMap).forEach(([key, src]) => {
-  const audio = new Audio(src);
-  audio.preload = "auto";
-
-  // 전체 길이 스템을 끝나면 다시 반복하고 싶으면 true
-  // 한 번만 2분 이상 재생하고 끝내고 싶으면 false
-  audio.loop = true;
-
-  audio.volume = 0;
-  stems[key] = audio;
-});
-
+let audioCtx = null;
+let stemsLoaded = false;
 let stemsStarted = false;
+
+const stemBuffers = {};
+const stemGains = {};
 const activeStems = new Set();
-
-
-let currentAudio = null;
-let currentWord = null;
 
 const popupVideo = document.getElementById("popupVideo");
 
-/* 스템 재생 */
+/* 스템 파일 미리 불러오기 */
+async function loadStems() {
+  if (stemsLoaded) return;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  for (const [key, src] of Object.entries(stemMap)) {
+    const response = await fetch(src);
+
+    if (!response.ok) {
+      console.error("스템 파일 로드 실패:", key, src);
+      continue;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+    gainNode.connect(audioCtx.destination);
+
+    stemBuffers[key] = audioBuffer;
+    stemGains[key] = gainNode;
+  }
+
+  stemsLoaded = true;
+}
+
+/* 모든 스템을 같은 오디오 시계로 동시에 시작 */
+async function startAllStems() {
+  await loadStems();
+
+  if (audioCtx.state === "suspended") {
+    await audioCtx.resume();
+  }
+
+  if (stemsStarted) return;
+
+  const startAt = audioCtx.currentTime + 0.1;
+
+  for (const [key, buffer] of Object.entries(stemBuffers)) {
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+
+    // 전체 곡을 반복하려면 true
+    // 한 번만 재생하려면 false
+    source.loop = true;
+
+    source.connect(stemGains[key]);
+    source.start(startAt, 0);
+  }
+
+  stemsStarted = true;
+}
+
+/* 단어 클릭 시 스템 볼륨만 켜고 끄기 */
 async function playSound(key, clickedWord) {
   console.log("clicked:", key);
 
@@ -48,46 +90,35 @@ async function playSound(key, clickedWord) {
     return;
   }
 
-  // 다른 단어 클릭 시 영상 숨김
+  // 다른 단어 클릭 시 영상 숨기기
   popupVideo.pause();
   popupVideo.currentTime = 0;
   popupVideo.classList.remove("show");
 
-  const stem = stems[key];
-
-  if (!stem) {
+  if (!stemMap[key]) {
     console.error("해당 스템 없음:", key);
     return;
   }
 
-  // 첫 클릭 때 모든 스템을 0초부터 동시에 조용히 시작
-  if (!stemsStarted) {
-    Object.values(stems).forEach((audio) => {
-      audio.currentTime = 0;
-      audio.volume = 0;
-    });
+  await startAllStems();
 
-    await Promise.allSettled(
-      Object.entries(stems).map(([stemKey, audio]) =>
-        audio.play().catch((error) => {
-          console.error(`${stemKey} 재생 실패:`, error);
-        })
-      )
-    );
+  const gain = stemGains[key];
 
-    stemsStarted = true;
+  if (!gain) {
+    console.error("Gain 없음:", key);
+    return;
   }
 
   // 이미 켜져 있으면 끄기
   if (activeStems.has(key)) {
-    stem.volume = 0;
+    gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
     activeStems.delete(key);
     clickedWord.classList.remove("playing");
     return;
   }
 
   // 꺼져 있으면 켜기
-  stem.volume = 1;
+  gain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.02);
   activeStems.add(key);
   clickedWord.classList.add("playing");
 }
