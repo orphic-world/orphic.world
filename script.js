@@ -17,6 +17,37 @@ const popupVideo = document.getElementById("popupVideo");
 
 /* 사운드 재생 */
 function playSound(key, clickedWord) {
+  // 기존 재생 중인 단어 표시 제거
+  if (currentWord) {
+    currentWord.classList.remove("playing");
+  }
+
+  currentWord = clickedWord;
+  currentWord.classList.add("playing");
+
+  // 세상은 영상만 재생
+  if (key === "world") {
+    // 기존 오디오 멈춤
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    popupVideo.classList.add("show");
+    popupVideo.currentTime = 0;
+
+    popupVideo.play().catch((error) => {
+      console.error("영상 재생 실패:", error);
+    });
+
+    return;
+  }
+
+  // 세상이 아닌 단어를 누르면 영상 닫기
+  popupVideo.pause();
+  popupVideo.currentTime = 0;
+  popupVideo.classList.remove("show");
+
   const src = soundMap[key];
   if (!src) return;
 
@@ -25,32 +56,11 @@ function playSound(key, clickedWord) {
     currentAudio.currentTime = 0;
   }
 
-  if (currentWord) {
-    currentWord.classList.remove("playing");
-  }
-
   currentAudio = new Audio(src);
 
   currentAudio.play().catch((error) => {
     console.error("오디오 재생 실패:", error);
   });
-
-  currentWord = clickedWord;
-  currentWord.classList.add("playing");
-
-  // 세상 클릭 시 영상 표시
-  if (key === "world") {
-    popupVideo.classList.add("show");
-    popupVideo.currentTime = 0;
-
-    popupVideo.play().catch((error) => {
-      console.error("영상 재생 실패:", error);
-    });
-  } else {
-    popupVideo.pause();
-    popupVideo.currentTime = 0;
-    popupVideo.classList.remove("show");
-  }
 
   currentAudio.addEventListener("ended", () => {
     if (currentWord) {
