@@ -5,7 +5,7 @@ const stemMap = {
   Guitar: "music/Guitar.mp3",
   Lead: "music/Lead.mp3",
   Pad: "music/Pad.mp3",
-  PianoFX: "music/Piano+FX.mp3",
+  PianoFX: "music/PianoFX.mp3",
 };
 
 const stems = {};
