@@ -1,5 +1,4 @@
 const stemMap = {
-  PianoFX: "music/PianoFX.mp3",
   Guitar: "music/Guitar.mp3",
   Bass: "music/Bass.mp3",
   Drum: "music/Drum.mp3",
