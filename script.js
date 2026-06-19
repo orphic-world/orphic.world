@@ -16,6 +16,8 @@ const stemBuffers = {};
 const stemGains = {};
 const activeStems = new Set();
 
+let currentWord = null;
+
 const popupVideo = document.getElementById("popupVideo");
 
 /* 스템 파일 미리 불러오기 */
@@ -26,7 +28,7 @@ async function loadStems() {
 
   for (const [key, src] of Object.entries(stemMap)) {
     try {
-      const response = await fetch(src + "?v=6");
+      const response = await fetch(src + "?v=4");
 
       if (!response.ok) {
         console.error("스템 파일 로드 실패:", key, src);
@@ -56,6 +58,11 @@ async function loadStems() {
 async function startAllStems() {
   await loadStems();
 
+  if (!audioCtx) {
+    console.error("AudioContext 없음");
+    return;
+  }
+
   if (audioCtx.state === "suspended") {
     await audioCtx.resume();
   }
@@ -65,16 +72,16 @@ async function startAllStems() {
   const startAt = audioCtx.currentTime + 0.1;
 
   for (const [key, buffer] of Object.entries(stemBuffers)) {
-    if (!stemGains[key]) continue;
+    const gain = stemGains[key];
+    if (!gain) continue;
 
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
-
-    // 전체 곡 반복
     source.loop = true;
-
-    source.connect(stemGains[key]);
+    source.connect(gain);
     source.start(startAt, 0);
+
+    console.log("스템 시작:", key);
   }
 
   stemsStarted = true;
@@ -84,7 +91,6 @@ async function startAllStems() {
 async function playSound(key, clickedWord) {
   console.log("clicked:", key);
 
-  // 세상 클릭 시 영상만 표시
   if (key === "world") {
     popupVideo.classList.add("show");
     popupVideo.currentTime = 0;
@@ -97,7 +103,6 @@ async function playSound(key, clickedWord) {
     return;
   }
 
-  // 다른 단어 클릭 시 영상 숨기기
   popupVideo.pause();
   popupVideo.currentTime = 0;
   popupVideo.classList.remove("show");
@@ -112,11 +117,10 @@ async function playSound(key, clickedWord) {
   const gain = stemGains[key];
 
   if (!gain) {
-    console.error("Gain 없음:", key);
+    console.error("Gain 없음. 파일 로드/디코딩 실패 가능:", key);
     return;
   }
 
-  // 이미 켜져 있으면 끄기
   if (activeStems.has(key)) {
     gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
     activeStems.delete(key);
@@ -124,12 +128,10 @@ async function playSound(key, clickedWord) {
     return;
   }
 
-  // 꺼져 있으면 켜기
   gain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.02);
   activeStems.add(key);
   clickedWord.classList.add("playing");
 }
-  
 
 /* 단어 클릭 */
 document.querySelectorAll(".word").forEach((word) => {
@@ -143,22 +145,20 @@ document.querySelectorAll(".word").forEach((word) => {
 const navTrigger = document.getElementById("navTrigger");
 const infoImage = document.getElementById("infoImage");
 
-/* 009 클릭 */
 navTrigger.addEventListener("click", (e) => {
   e.stopPropagation();
   infoImage.classList.toggle("show");
 });
 
-/* 네비 클릭 시 유지 */
 infoImage.addEventListener("click", (e) => {
   e.stopPropagation();
 });
 
-/* 바깥 클릭 닫기 */
 document.addEventListener("click", () => {
   infoImage.classList.remove("show");
 });
 
+/* LP 재생 버튼 */
 const btn = document.getElementById("playBtn");
 const icon = document.getElementById("playIcon");
 const audio = document.getElementById("bgm");
@@ -167,7 +167,9 @@ let playing = false;
 
 btn.addEventListener("click", () => {
   if (!playing) {
-    audio.play();
+    audio.play().catch((error) => {
+      console.error("BGM 재생 실패:", error);
+    });
     icon.textContent = "❚❚";
   } else {
     audio.pause();
@@ -176,4 +178,3 @@ btn.addEventListener("click", () => {
 
   playing = !playing;
 });
-
