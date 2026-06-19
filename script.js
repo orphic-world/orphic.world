@@ -17,7 +17,8 @@ const popupVideo = document.getElementById("popupVideo");
 
 /* 사운드 재생 */
 function playSound(key, clickedWord) {
-  // 기존 재생 중인 단어 표시 제거
+  console.log("clicked:", key);
+
   if (currentWord) {
     currentWord.classList.remove("playing");
   }
@@ -25,9 +26,8 @@ function playSound(key, clickedWord) {
   currentWord = clickedWord;
   currentWord.classList.add("playing");
 
-  // 세상은 영상만 재생
+  // 세상 클릭 시 영상만 표시
   if (key === "world") {
-    // 기존 오디오 멈춤
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
@@ -43,7 +43,7 @@ function playSound(key, clickedWord) {
     return;
   }
 
-  // 세상이 아닌 단어를 누르면 영상 닫기
+  // 다른 단어 클릭 시 영상 숨김
   popupVideo.pause();
   popupVideo.currentTime = 0;
   popupVideo.classList.remove("show");
